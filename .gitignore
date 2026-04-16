@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Pipeline outputs (generated files)
+output/
+
+# Input PDFs (user-provided, not distributed)
+*.pdf
+
+# OCR language data (downloaded at runtime)
+*.traineddata
+
+# Secrets & environment
+.env
+.env.local
+*.key
+secrets.json
+
+# Windows / WSL artifacts
+*:Zone.Identifier
+Thumbs.db
+
+# Logs
+*.log
+
+# Claude workspace
+.claude/

@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm 2cm 2.5cm 2cm;
+            @bottom-center {
+                content: counter(page);
+                font-size: 9pt;
+                color: #888;
+            }
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: "Georgia", "Times New Roman", serif;
+            font-size: 10.5pt;
+            line-height: 1.6;
+            color: #1a1a1a;
+            max-width: 1050px;
+            margin: 0 auto;
+            padding: 24px 24px 24px 24px;
+        }
+
+        /* Page sections with gutter for margin notes */
+        section.page-section {
+            position: relative;
+            padding-right: 180px;
+            margin-bottom: 32px;
+            min-height: 50px;
+        }
+
+        /* Chapter heading */
+        h1 {
+            font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+            font-size: 24pt;
+            color: #003366;
+            border-bottom: 3px solid #e67e00;
+            padding-bottom: 10px;
+            margin: 48px 0 24px 0;
+            page-break-before: always;
+        }
+
+        h1:first-of-type { page-break-before: avoid; }
+
+        /* Section heading */
+        h2 {
+            font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+            font-size: 15pt;
+            color: #003366;
+            margin: 30px 0 12px 0;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 4px;
+        }
+
+        /* Sub-section */
+        h3 {
+            font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+            font-size: 12pt;
+            color: #1a5276;
+            margin: 20px 0 8px 0;
+        }
+
+        h4 {
+            font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+            font-size: 10.5pt;
+            color: #1a5276;
+            margin: 16px 0 6px 0;
+        }
+
+        p {
+            margin: 4px 0 10px 0;
+            text-align: justify;
+            orphans: 3;
+            widows: 3;
+        }
+
+        /* Margin notes — positioned in the right gutter */
+        aside.margin-note {
+            position: absolute;
+            right: 0;
+            width: 160px;
+            padding: 6px 10px;
+            font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+            font-size: 8.5pt;
+            font-weight: 600;
+            color: #003366;
+            background: #f0f5fa;
+            border-left: 3px solid #e67e00;
+            line-height: 1.35;
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 900px) {
+            section.page-section { padding-right: 0; }
+            aside.margin-note {
+                position: static;
+                width: auto;
+                margin: 8px 0;
+            }
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 14px 0;
+            font-size: 9.5pt;
+            page-break-inside: avoid;
+        }
+
+        thead { background: #003366; color: #fff; }
+        th {
+            padding: 7px 10px;
+            text-align: left;
+            font-weight: 600;
+            font-family: "Segoe UI", sans-serif;
+        }
+        td {
+            padding: 5px 10px;
+            border-bottom: 1px solid #ddd;
+            vertical-align: top;
+        }
+        tbody tr:nth-child(even) { background: #f7f9fb; }
+
+        /* Lists */
+        ul, ol { margin: 6px 0 12px 0; padding-left: 24px; }
+        li { margin: 2px 0; }
+
+        /* === FIGURES / SCREENSHOTS === */
+        figure {
+            margin: 20px 0;
+            page-break-inside: avoid;
+            text-align: center;
+        }
+
+        figure img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            cursor: help;
+            transition: box-shadow 0.2s;
+        }
+
+        figure img:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        figcaption {
+            font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+            font-size: 9pt;
+            color: #555;
+            margin-top: 8px;
+            font-style: italic;
+            text-align: center;
+        }
+
+        /* SAP screenshot specific */
+        figure.sap-screenshot {
+            background: #fafafa;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 12px;
+        }
+
+        /* Blockquotes / info boxes */
+        blockquote {
+            background: #fff8e6;
+            border-left: 4px solid #e67e00;
+            padding: 10px 16px;
+            margin: 14px 0;
+            font-size: 10pt;
+            page-break-inside: avoid;
+        }
+
+        /* Code / transaction codes */
+        code {
+            font-family: "Consolas", "Courier New", monospace;
+            background: #f0f0f0;
+            padding: 1px 4px;
+            border-radius: 2px;
+            font-size: 9.5pt;
+        }
+
+        strong { font-weight: 700; }
+
+        /* Page separator */
+        hr.page-sep {
+            border: none;
+            border-top: 1px dashed #ddd;
+            margin: 36px 0;
+        }
+
+        /* Print */
+        @media print {
+            body { max-width: none; padding: 0; }
+            section.page-section { padding-right: 160px; }
+            aside.margin-note {
+                width: 140px;
+                font-size: 8pt;
+            }
+            hr.page-sep { display: none; }
+            figure img { box-shadow: none; }
+        }
+    </style>
+</head>
+<body>
+
+{% for page in pages %}
+{% if page.html %}
+<section class="page-section">
+{{ page.html }}
+</section>
+{% if not loop.last %}
+<hr class="page-sep">
+{% endif %}
+{% endif %}
+{% endfor %}
+
+</body>
+</html>
