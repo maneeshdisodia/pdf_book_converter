@@ -16,34 +16,28 @@ logger = logging.getLogger(__name__)
 
 # --- Pass 1: Figure extraction prompt ---
 
-FIGURE_EXTRACTION_PROMPT = """This image is {W}x{H} pixels. It shows two pages of a German SAP technical book side by side.
+FIGURE_EXTRACTION_PROMPT = """This image is {W}x{H} pixels. It shows a scanned book page (possibly a two-page spread).
 
-Find ALL SAP GUI screenshots/dialog windows embedded within the text. These are rectangular UI windows with:
-- A title bar containing the SAP logo and window title
-- Gray toolbars with navigation buttons
-- Input fields, tables, tabs
-- They look visually distinct from the surrounding body text
+Find ALL screenshots, dialog windows, application UI, diagrams, flowcharts, and illustrations embedded within the text. These are visual elements that look distinct from body text — they may have toolbars, borders, input fields, charts, etc.
 
-Return TIGHT pixel coordinates for each screenshot. The crop should include the SAP window frame but NO surrounding body text, NO figure captions below.
-
-Also identify any diagrams, flowcharts, or T-account illustrations (these look like drawn tables/charts, not regular text tables).
+Return TIGHT pixel coordinates for each visual element. The crop should contain ONLY the visual element — no surrounding body text, no figure captions below.
 
 JSON format:
-[{{"id": "fig1", "type": "sap_screenshot"|"diagram", "desc_en": "brief English description for tooltip", "caption_en": "Figure 11.X English Caption", "x1": int, "y1": int, "x2": int, "y2": int}}]
+[{{"id": "fig1", "type": "screenshot"|"diagram", "desc_en": "brief English description for tooltip", "caption_en": "Figure X.X English Caption", "x1": int, "y1": int, "x2": int, "y2": int}}]
 
 Coordinates in pixels of the {W}x{H} image. If no figures found, return [].
 Return ONLY valid JSON."""
 
 # --- Pass 2: Translation prompt ---
 
-TRANSLATION_PROMPT = """You are a professional translator converting a German SAP technical book page into structured English HTML.
+TRANSLATION_PROMPT_TEMPLATE = """You are a professional translator converting a {source_lang} book page into structured English HTML.
 
 You will receive:
 1. An image of the book page
 2. A list of figures already extracted as separate images from this page
 
 Your job:
-1. Translate ALL German text to English
+1. Translate ALL {source_lang} text to English
 2. Output clean, semantic HTML preserving the document structure
 3. For each figure, insert the provided <img> tag at the correct position in the text flow
 
@@ -69,8 +63,13 @@ FIGURES — CRITICAL:
 - Place the <figure> where the image appears in the page flow
 - NEVER describe a screenshot in text — ALWAYS use the <img> tag
 - Use the EXACT src, title, and caption provided below
+{glossary}
+Output ONLY HTML content (no fences, no wrappers)."""
 
-SAP terminology:
+# Domain-specific glossaries (added to the translation prompt when source_lang matches)
+GLOSSARIES = {
+    "German": """
+SAP terminology (use these English terms):
 - Vertrieb = Sales and Distribution
 - Fakturierung/Faktura = Billing/Invoice
 - Fakturierungsplan = Billing Plan
@@ -88,9 +87,17 @@ SAP terminology:
 - Teilfakturierung = Partial Billing
 - Periodische Fakturierung = Periodic Billing
 - Keep SAP product names as-is: SAP S/4HANA, Fiori, etc.
-- Keep transaction codes as-is: VA01, VF01, VL01N, SPRO, etc.
+- Keep transaction codes as-is: VA01, VF01, VL01N, SPRO, etc.""",
+}
 
-Output ONLY HTML content (no fences, no wrappers)."""
+
+def _build_translation_prompt(source_lang: str) -> str:
+    """Build the translation system prompt for the given source language."""
+    glossary = GLOSSARIES.get(source_lang, "")
+    return TRANSLATION_PROMPT_TEMPLATE.format(
+        source_lang=source_lang,
+        glossary=glossary,
+    )
 
 
 def _encode_image(img: Image.Image, max_width: int = 1500) -> tuple[str, str, float]:
@@ -239,6 +246,7 @@ def translate_page_with_vision(
     client: anthropic.Anthropic,
     model: str,
     temperature: float = 0.1,
+    source_lang: str = "German",
 ) -> str:
     """Translate a page, embedding extracted figure references."""
     full_img = Image.open(image_path).convert("RGB")
@@ -254,10 +262,12 @@ def translate_page_with_vision(
     else:
         fig_info = "NO FIGURES on this page — only text content."
 
+    system_prompt = _build_translation_prompt(source_lang)
+
     response = client.messages.create(
         model=model,
         max_tokens=4096,
-        system=TRANSLATION_PROMPT,
+        system=system_prompt,
         messages=[
             {
                 "role": "user",
@@ -289,6 +299,7 @@ def translate_pages(
     output_image_dir: Path,
     model: str = "claude-haiku-4-5-20251001",
     temperature: float = 0.1,
+    source_lang: str = "German",
 ) -> List[dict]:
     """Two-pass: extract figures, then translate with image references."""
     client = anthropic.Anthropic(api_key=api_key)
@@ -313,7 +324,7 @@ def translate_pages(
         logger.info(f"Page {page_num}/{total_pages}: translating ({len(figures)} figures)...")
         try:
             html = translate_page_with_vision(
-                page_num, image_path, figures, client, model, temperature
+                page_num, image_path, figures, client, model, temperature, source_lang
             )
             logger.info(f"Page {page_num}: got {len(html)} chars of HTML")
             results.append({"page": page_num, "html": html, "figures": figures})

@@ -1,137 +1,143 @@
 # PDF Book Converter
 
-Convert scanned PDF books from any language to English while preserving the original formatting, layout, and embedded images.
+Convert scanned PDF books from any language to English while preserving formatting, layout, and embedded images.
 
-Built for technical books with complex layouts — tables, margin notes, SAP screenshots, diagrams, numbered lists, and multi-column spreads.
+Built for technical books with complex layouts — tables, margin notes, screenshots, diagrams, numbered lists, and multi-column spreads.
 
 ## How It Works
 
 ```
-PDF ──> liteparse (OCR + screenshots) ──> Haiku 4.5 vision (translate + structure) ──> HTML + PDF
+PDF ──> liteparse (OCR + screenshots) ──> Claude Haiku 4.5 (extract figures + translate) ──> HTML + PDF
 ```
 
-**4-step pipeline:**
-
-1. **Parse** — [liteparse](https://github.com/run-llama/liteparse) extracts text (with OCR) and generates page screenshots
-2. **Extract figures** — Anthropic Haiku 4.5 vision identifies SAP screenshots/diagrams on each page and crops them from the page scan
-3. **Translate** — Same vision model reads each page image and produces structured English HTML, embedding the cropped figures as `<img>` tags with hover tooltips
+1. **Parse** — [liteparse](https://github.com/run-llama/liteparse) extracts text via OCR and generates page screenshots
+2. **Extract figures** — Claude Haiku 4.5 identifies screenshots/diagrams on each page and crops them from the page scan
+3. **Translate** — Same vision model reads each page and produces structured English HTML, embedding cropped figures as `<img>` tags with hover tooltips
 4. **Generate** — Jinja2 assembles styled HTML, WeasyPrint renders to PDF
+
+## Quickstart
+
+### Prerequisites
+
+- **Node.js 18+** (for liteparse)
+- **Python 3.10+**
+- **Anthropic API key** — [get one here](https://console.anthropic.com/)
+
+### Install
+
+```bash
+git clone https://github.com/maneeshdisodia/pdf_book_converter.git
+cd pdf_book_converter
+
+# Install liteparse
+npm i -g @llamaindex/liteparse
+
+# Setup Python environment
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# Configure API key
+cp .env.example .env
+# Edit .env and add your ANTHROPIC_API_KEY
+```
+
+### Run
+
+```bash
+# Convert a German PDF (default)
+python pipeline.py my_book.pdf
+
+# Specify output directory
+python pipeline.py my_book.pdf -o ./translated
+
+# Convert a French book
+python pipeline.py livre.pdf --source-lang French --ocr-lang fra
+
+# Convert a Spanish book
+python pipeline.py libro.pdf --source-lang Spanish --ocr-lang spa
+```
+
+### Output
+
+```
+output/
+├── book_english.html     # Styled HTML with embedded images + hover tooltips
+├── book_english.pdf      # PDF version
+├── translations.json     # Cached translations (for re-runs)
+├── parsed.json           # Cached OCR data
+└── images/               # Page screenshots + cropped figures
+```
+
+## CLI Options
+
+```
+python pipeline.py --help
+
+positional arguments:
+  input                 Path to the input PDF file
+
+options:
+  -o, --output DIR      Output directory (default: ./output)
+  --source-lang LANG    Source language (default: German)
+  --ocr-lang CODE       OCR language code (default: deu)
+  --model MODEL         Anthropic model ID (default: claude-haiku-4-5-20251001)
+  --title TITLE         Book title for output HTML
+  --temperature FLOAT   Translation temperature (default: 0.1)
+  --skip-parse          Reuse existing OCR data and screenshots
+  --skip-translate      Reuse existing translations, rebuild HTML/PDF only
+```
+
+## Configuration
+
+All settings can be configured via environment variables or a `.env` file:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ANTHROPIC_API_KEY` | (required) | Your Anthropic API key |
+| `ANTHROPIC_MODEL` | `claude-haiku-4-5-20251001` | Model for translation |
+| `SOURCE_LANG` | `German` | Source language of the PDF |
+| `OCR_LANG` | `deu` | OCR language code |
+| `TRANSLATION_TEMPERATURE` | `0.1` | Lower = more consistent |
+
+CLI flags override environment variables.
+
+## Cost
+
+Using Claude Haiku 4.5 (~$0.80/M input, $4/M output):
+
+| Pages | Time | Cost |
+|-------|------|------|
+| 10 | ~2 min | ~$0.10 |
+| 28 | ~6 min | ~$0.30 |
+| 100 | ~20 min | ~$1.00 |
 
 ## Features
 
 - Preserves document structure: headings, paragraphs, lists, tables, margin notes
 - Extracts screenshots/figures as actual images (not text descriptions)
 - Hover tooltips on images with English descriptions
-- Book-like CSS layout with margin notes in a right gutter
-- SAP-specific terminology glossary built into the translation prompt
-- Supports any source language (configured via the translation prompt)
-- Skip flags to resume interrupted runs (`--skip-parse`, `--skip-translate`)
-
-## Quickstart
-
-### Prerequisites
-
-- **Node.js** (for liteparse)
-- **Python 3.10+**
-- **Anthropic API key** ([get one here](https://console.anthropic.com/))
-
-### Install
-
-```bash
-# Clone the repo
-git clone https://github.com/YOUR_USERNAME/pdf-book-converter.git
-cd pdf-book-converter
-
-# Install liteparse (PDF parser + OCR)
-npm i -g @llamaindex/liteparse
-
-# Create Python virtual environment
-python -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-# .venv\Scripts\activate   # Windows
-
-# Install Python dependencies
-pip install -r requirements.txt
-```
-
-### Run
-
-```bash
-# Set your Anthropic API key
-export ANTHROPIC_API_KEY=sk-ant-...
-
-# Convert a PDF
-python pipeline.py --input /path/to/your/book.pdf
-```
-
-Output appears in `output/`:
-- `book_english.html` — styled HTML with embedded images
-- `book_english.pdf` — PDF version
-- `images/` — page screenshots and cropped figures
-
-### Options
-
-```
-python pipeline.py --help
-
-Options:
-  --input PATH          Input PDF file path
-  --skip-parse          Reuse existing parsed data/screenshots
-  --skip-translate      Reuse existing translations (rebuild HTML/PDF only)
-  --model MODEL_ID      Anthropic model (default: claude-haiku-4-5-20251001)
-```
-
-## Configuration
-
-Edit `config.py` to change defaults:
-
-```python
-OUTPUT_DIR = BASE_DIR / "output"       # Output directory
-TRANSLATION_TEMPERATURE = 0.1          # Lower = more consistent translations
-```
-
-### Using a local LLM instead of Anthropic API
-
-The pipeline also supports local LLMs via [LM Studio](https://lmstudio.ai/) (OpenAI-compatible API). See the `lm_studio` branch or modify `steps/translate.py` to use the `openai` client pointed at your local endpoint.
-
-## Cost
-
-Using Anthropic Haiku 4.5:
-- ~$0.30 per 28-page book (figure extraction + translation)
-- ~10 seconds per page
-- Total: ~5-6 minutes for a full book
+- Book-like CSS layout with margin notes
+- Built-in SAP terminology glossary (for German technical books)
+- Supports any source language via `--source-lang` and `--ocr-lang`
+- Skip flags to resume interrupted runs
 
 ## Project Structure
 
 ```
 pdf-book-converter/
-├── pipeline.py              # Main entry point
-├── config.py                # Configuration
+├── pipeline.py              # CLI entry point
 ├── requirements.txt         # Python dependencies
+├── .env.example             # Configuration template
 ├── steps/
-│   ├── parse_pdf.py         # liteparse wrapper (OCR + screenshots)
-│   ├── translate.py         # Haiku 4.5 vision (figure extraction + translation)
+│   ├── parse_pdf.py         # liteparse wrapper
+│   ├── translate.py         # Claude vision (figure extraction + translation)
 │   ├── build_html.py        # Jinja2 HTML assembly
 │   └── generate_pdf.py      # WeasyPrint PDF generation
-├── templates/
-│   └── book.html            # HTML template with book-like CSS
-└── output/                  # Generated files (gitignored)
-    ├── book_english.html
-    ├── book_english.pdf
-    ├── translations.json
-    └── images/
+└── templates/
+    └── book.html            # HTML template with book CSS
 ```
-
-## How the figure extraction works
-
-Scanned PDFs have no separate image objects — each page is one large JPEG. The pipeline:
-
-1. Sends each page screenshot to Haiku 4.5 and asks for bounding box coordinates of all SAP screenshots/diagrams
-2. Crops those regions from the full-resolution page scan using PIL
-3. Applies smart trimming: detects the SAP title bar (dark logo pixels) and trims any text that leaked into the crop
-4. Saves clean cropped images and passes their paths to the translation step
-5. The translation step outputs `<img src="..." title="English description">` tags at the correct positions
 
 ## License
 
-MIT License — see [LICENSE](LICENSE).
+MIT

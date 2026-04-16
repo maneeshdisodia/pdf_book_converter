@@ -1,4 +1,4 @@
-"""Step 1: Parse PDF using liteparse CLI."""
+"""Parse PDF using liteparse CLI — extracts text via OCR and generates page screenshots."""
 
 import json
 import logging
@@ -10,26 +10,32 @@ logger = logging.getLogger(__name__)
 
 
 def find_lit_binary() -> str:
-    """Find the lit binary, checking common locations."""
+    """Find the liteparse 'lit' binary."""
     lit = shutil.which("lit")
     if lit:
         return lit
-    # Check npm global install in user prefix
     home_lit = Path.home() / ".local" / "bin" / "lit"
     if home_lit.exists():
         return str(home_lit)
     raise FileNotFoundError(
-        "liteparse 'lit' binary not found. Install with: npm i -g @llamaindex/liteparse"
+        "'lit' binary not found. Install liteparse:\n"
+        "  npm i -g @llamaindex/liteparse"
     )
 
 
-def parse_pdf(input_pdf: Path, output_dir: Path, image_dir: Path) -> dict:
+def parse_pdf(
+    input_pdf: Path,
+    output_dir: Path,
+    image_dir: Path,
+    ocr_lang: str = "deu",
+) -> dict:
     """Parse PDF with liteparse, generate screenshots, return parsed data.
 
     Args:
         input_pdf: Path to the input PDF.
         output_dir: Directory for output files.
         image_dir: Directory for page screenshots.
+        ocr_lang: OCR language code (e.g. 'deu', 'fra', 'spa', 'eng').
 
     Returns:
         Parsed JSON data with pages and text items.
@@ -41,12 +47,12 @@ def parse_pdf(input_pdf: Path, output_dir: Path, image_dir: Path) -> dict:
     json_output = output_dir / "parsed.json"
     text_output = output_dir / "parsed.txt"
 
-    # Parse to JSON (with bounding boxes)
+    # Parse to JSON
     if not json_output.exists():
-        logger.info("Parsing PDF to JSON with OCR...")
+        logger.info(f"Parsing PDF to JSON (OCR language: {ocr_lang})...")
         subprocess.run(
             [lit, "parse", str(input_pdf), "--format", "json",
-             "--ocr-language", "deu", "-o", str(json_output)],
+             "--ocr-language", ocr_lang, "-o", str(json_output)],
             check=True,
         )
     else:
@@ -57,7 +63,7 @@ def parse_pdf(input_pdf: Path, output_dir: Path, image_dir: Path) -> dict:
         logger.info("Parsing PDF to text...")
         subprocess.run(
             [lit, "parse", str(input_pdf), "--format", "text",
-             "--ocr-language", "deu", "-o", str(text_output)],
+             "--ocr-language", ocr_lang, "-o", str(text_output)],
             check=True,
         )
     else:
